@@ -65,9 +65,16 @@ module Capistrano
 
         def ssh_command_for(server)
           port = ssh_port(server)
-          port.nil? ? "ssh" : "ssh -p #{port}"
+          port.nil? ? "ssh #{ssh_key} #{ssh_config_file}" : "ssh -p #{port} #{ssh_key} #{ssh_config_file}"
+        end
+        
+        def ssh_key
+          ssh_options[:keys] ? "-i #{ssh_options[:keys]}" : ""
         end
 
+        def ssh_config_file
+          ssh_options[:config] ? "-F #{ssh_options[:config]}" : ""
+        end
         def local_cache_path
           File.expand_path(local_cache)
         end
@@ -117,12 +124,17 @@ module Capistrano
         end
 
         def command
-          if local_cache_valid?
-            source.sync(revision, local_cache_path)
-          elsif !local_cache_exists?
-            "mkdir -p #{local_cache_path} && #{source.checkout(revision, local_cache_path)}"
+          if configuration[:scm] == :none
+            #If scm is NONE, we don't need to sync
+            logger.info ":scm is none and we dont need to sync"
           else
-            raise InvalidCacheError, "The local cache exists but is not valid (#{local_cache_path})"
+            if local_cache_valid?
+              source.sync(revision, local_cache_path)
+            elsif !local_cache_exists?
+              "mkdir -p #{local_cache_path} && #{source.checkout(revision, local_cache_path)}"
+            else
+              raise InvalidCacheError, "The local cache exists but is not valid (#{local_cache_path})"
+            end
           end
         end
 
